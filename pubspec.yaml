@@ -1,0 +1,55 @@
+name: avihealth_provider
+description: A new Flutter project.
+
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=2.16.2 <3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  animate_do: ^3.0.2
+  awesome_dialog: ^3.0.0
+  cupertino_icons: ^1.0.2
+  flutter_secure_storage: ^5.0.2
+  keyboard_dismisser: ^2.0.1
+  local_auth: ^2.1.2
+  lottie: ^1.4.0
+  intl: ^0.18.1
+  webview_flutter: ^3.0.4
+  pdfx: ^2.0.1+2
+  image_picker: ^0.8.6+1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^1.0.0
+
+flutter:
+
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/pdf/
+
+  fonts:
+    - family: Oswald
+      fonts:
+        - asset: assets/fonts/Oswald-Regular.ttf
+          weight: 100
+    - family: Rubik
+      fonts:
+        - asset: assets/fonts/Rubik-Light.ttf
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto-Regular.ttf
+    - family: WorkSans
+      fonts:
+        - asset: assets/fonts/WorkSans-Medium.ttf
