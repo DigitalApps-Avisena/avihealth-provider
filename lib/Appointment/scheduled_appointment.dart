@@ -1,77 +1,109 @@
+import 'dart:convert';
 import 'package:avihealth_provider/Widgets/const.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 
 class ScheduledAppointment extends StatefulWidget {
-  const ScheduledAppointment({Key? key}) : super(key: key);
+  const ScheduledAppointment({Key? key, required this.locationCode}) : super(key: key);
+  final String locationCode;
 
   @override
   State<ScheduledAppointment> createState() => _ScheduledAppointmentState();
 }
 
 class _ScheduledAppointmentState extends State<ScheduledAppointment> {
+  final DateTime _selectedDate = DateTime.now();
+  final storage = const FlutterSecureStorage();
 
-  final DateTime _selectedDate = DateTime(2024, 10, 28);
-
-  Color getStatusColor(String status) {
-    switch (status) {
-      case 'Waiting':
-        return const Color(0xFFFFCE1B);
-      case 'Arrived':
-        return const Color(0xFF305CDE);
-      case 'Seen':
-        return const Color(0xFF4CBB17);
-      default:
-        return Colors.grey;
-    }
-  }
-
+  List<Map<String, String>> appointments = [];
   dynamic _height;
   dynamic _width;
 
-  final Map<DateTime, List<Map<String, String>>> _dummyData = {
-    DateTime(2024, 10, 28): [
-      {'time': '9:00 am', 'code': 'M00442545', 'name': 'MARK ALI QAYYUM BIN MARK FAKHRI QAYYUM', 'status': 'Seen'},
-      {'time': '11:00 am', 'code': 'M00442567', 'name': 'LATIRA HAKIMAH', 'status': 'Waiting'},
-    ],
-    DateTime(2024, 10, 29): [
-      {'time': '10:00 am', 'code': 'M00442546', 'name': 'JONATHAN FEBRUARY', 'status': 'Arrived'},
-      {'time': '2:30 pm', 'code': 'M00442323', 'name': 'LEONA MAY', 'status': 'Seen'},
-      {'time': '4:00 pm', 'code': 'M00478990', 'name': 'FABRESE JOY', 'status': 'Waiting'},
-      {'time': '8:00 pm', 'code': 'M00477878', 'name': 'RIDSECT WANGI', 'status': ''},
-    ],
-    DateTime(2024, 11, 1): [
-      {'time': '11:00 am', 'code': 'M00442547', 'name': 'LATIPA BINTI ABU', 'status': 'Arrived'},
-    ],
-    DateTime(2024, 11, 25): [
-      {'time': '9:00 am', 'code': 'M00442545', 'name': 'MARK ALI QAYYUM BIN MARK FAKHRI QAYYUM', 'status': 'Seen'},
-      {'time': '11:00 am', 'code': 'M00442567', 'name': 'LATIRA HAKIMAH', 'status': 'Waiting'},
-    ],
-    DateTime(2024, 11, 28): [
-      {'time': '9:00 am', 'code': 'M00442545', 'name': 'MARK ALI QAYYUM BIN MARK FAKHRI QAYYUM', 'status': 'Seen'},
-      {'time': '11:00 am', 'code': 'M00442567', 'name': 'LATIRA HAKIMAH', 'status': 'Waiting'},
-    ]
-  };
+  var trakCareCode;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchAppointments();
+  }
+
+  String convertToAmPm(String time24h) {
+    try {
+      final time = DateFormat("HH:mm:ss").parse(time24h);
+      return DateFormat("h:mm a").format(time);
+    } catch (e) {
+      return '';
+    }
+  }
+
+  Future<void> fetchAppointments() async {
+    final storedCode = await storage.read(key: 'trakcareCode');
+    final uri = Uri.parse('http://10.10.0.37/avstc/appRestApiCareProvider/getDoctorAppointment');
+    final String dateStr = DateFormat('dd/MM/yyyy').format(_selectedDate);
+
+    setState(() {
+      trakCareCode = storedCode ?? '';
+    });
+
+    final Map<String, dynamic> body = {
+      "dateFrom": dateStr,
+      "dateToo": dateStr,
+      "trakcareCode": trakCareCode,
+      "hospital" : widget.locationCode
+    };
+
+    print('Sending request: $body');
+
+    try {
+      final response = await http.post(
+        uri,
+        body: body,
+      );
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final List<dynamic> list = data['listPatient'] ?? [];
+
+        print('Decoded data: $data');
+
+        setState(() {
+          appointments = list.map<Map<String, String>>((item) {
+            return {
+              'mrn': item['patientMRN'] ?? '',
+              'name': item['patientName'] ?? '',
+              'date': item['admissionDate'] ?? '',
+              'time': convertToAmPm(item['admissionTime'] ?? ''),
+              'status': item['admissionType'] ?? '',
+            };
+          }).toList();
+        });
+      } else {
+        print('Failed to load appointments: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error fetching appointments: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     _height = MediaQuery.of(context).size.height;
     _width = MediaQuery.of(context).size.width;
 
-    List<Map<String, String>> appointments = _dummyData[DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day)] ?? [];
-
     return Scaffold(
       appBar: AppBar(
         title: const Text(
           'Today\'s Appointments',
-          style: TextStyle(
-            color: turquoise,
-          ),
+          style: TextStyle(color: Colors.white),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: turquoise,
         centerTitle: true,
-        iconTheme: const IconThemeData(
-          color: turquoise,
-        ),
+        iconTheme: const IconThemeData(color: Colors.white),
         leading: IconButton(
           onPressed: () => Navigator.of(context).pop(),
           icon: Icon(
@@ -81,115 +113,149 @@ class _ScheduledAppointmentState extends State<ScheduledAppointment> {
         ),
         elevation: 20,
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: EdgeInsets.only(
-              top: _height * 0.07,
-              bottom: _height * 0.01,
-              left: _width * 0.05
-            ),
-            child: Text(
-              '7 February 2025',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: _width * 0.05,
-                color: Colors.black87,
+      body: Container(
+        color: const Color(0xFFf4f9fa),
+        child: Column(
+          children: [
+            // Date header
+            Padding(
+              padding: EdgeInsets.only(
+                top: _height * 0.02,
+                left: _width * 0.04,
+                bottom: _height * 0.01,
+              ),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  DateFormat('d MMMM yyyy').format(_selectedDate),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: _width * 0.04,
+                    color: Colors.black87,
+                    fontFamily: 'Monserrat',
+                  ),
+                ),
               ),
             ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: appointments.length,
-              itemBuilder: (context, index) {
-                final appointment = appointments[index];
-                final timeParts = appointment['time']?.split(' ') ?? [''];
-                final hour = timeParts[0];
-                final period = timeParts.length > 1 ? timeParts[1] : '';
-                final status = appointment['status'] ?? 'Unknown';
-
-                return Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4
+            // Appointments list with timeline
+            Expanded(
+              child: appointments.isEmpty
+                  ? Center(
+                child: Text(
+                  'No appointments',
+                  style: TextStyle(
+                    fontSize: _width * 0.045,
+                    color: Colors.grey,
                   ),
-                  child: SizedBox(
-                    height: _height * 0.12,
-                    child: Card(
-                      elevation: 5,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      shadowColor: Colors.grey,
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: _width * 0.18,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  hour,
-                                  style: TextStyle(
-                                    fontSize: _width * 0.05,
-                                    fontWeight: FontWeight.bold,
+                ),
+              )
+                  : ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                itemCount: appointments.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 4),
+                itemBuilder: (context, index) {
+                  final appointment = appointments[index];
+                  final timeParts = appointment['time']?.split(' ') ?? [''];
+                  final hour = timeParts[0];
+                  final period = timeParts.length > 1 ? timeParts[1] : '';
+                  final status = appointment['status'] ?? 'Unknown';
+                  final isLast = index == appointments.length - 1;
+
+                  return IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Timeline section
+                        SizedBox(
+                          width: _width * 0.08,
+                          child: Column(
+                            children: [
+                              // Timeline dot
+                              Container(
+                                width: 10,
+                                height: 9,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: turquoise,
+                                ),
+                              ),
+                              // Timeline line (don't show for last item)
+                              if (!isLast)
+                                Expanded(
+                                  child: Container(
+                                    width: 2,
                                     color: turquoise,
+                                    margin: const EdgeInsets.only(top: 4),
                                   ),
                                 ),
-                                Text(
-                                  period,
-                                  style: TextStyle(
-                                    fontSize: _width * 0.05,
-                                    fontWeight: FontWeight.bold,
-                                    color: turquoise,
-                                  ),
+                            ],
+                          ),
+                        ),
+                        // Content section
+                        Expanded(
+                          child: Container(
+                            height: _height * 0.06,
+                            margin: EdgeInsets.only(left: _width * 0.03),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.withOpacity(0.1),
+                                  spreadRadius: 1,
+                                  blurRadius: 3,
+                                  offset: const Offset(0, 1),
                                 ),
                               ],
                             ),
-                          ),
-                          const VerticalDivider(color: Colors.black, thickness: 2),
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    appointment['code'] ?? '',
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                            child: Row(
+                              children: [
+                                SizedBox(width: _width * 0.04),
+                                // Time display
+                                SizedBox(
+                                  width: _width * 0.2,
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '$hour $period',
+                                        style: TextStyle(
+                                          fontSize: _width * 0.04,
+                                          fontFamily: 'Roboto',
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.black,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  Text(
-                                    appointment['name'] ?? '',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(fontSize: _width * 0.04),
+                                ),
+                                // MRN display
+                                Expanded(
+                                  child: Center(
+                                    child: Text(
+                                      appointment['mrn'] != '' ? appointment['mrn'] ?? '' : 'New Patient',
+                                      style: TextStyle(
+                                        fontFamily: 'Roboto',
+                                        fontSize: _width * 0.045,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
                                   ),
-                                ],
-                              ),
+                                ),
+                                SizedBox(width: _width * 0.04),
+                              ],
                             ),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8.0),
-                            child: Text(
-                              status,
-                              style: TextStyle(
-                                fontSize: _width * 0.04,
-                                color: getStatusColor(appointment['status'] ?? ''),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

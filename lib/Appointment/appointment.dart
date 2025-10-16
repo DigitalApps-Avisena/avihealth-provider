@@ -1,17 +1,43 @@
+import 'dart:convert';
 import 'package:avihealth_provider/Widgets/const.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
 class Appointment extends StatefulWidget {
-  const Appointment({Key? key}) : super(key: key);
+  const Appointment({Key? key, required this.locationCode}) : super(key: key);
+  final String locationCode;
 
   @override
   State<Appointment> createState() => _AppointmentState();
 }
 
 class _AppointmentState extends State<Appointment> {
-
   DateTime _selectedDate = DateTime.now();
+  List<Map<String, String>> appointments = [];
+  final storage = const FlutterSecureStorage();
+
+  dynamic _height;
+  dynamic _width;
+
+  var trakCareCode;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDate = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+    fetchAppointments(); // Load initial data
+  }
+
+  String convertToAmPm(String time24h) {
+    try {
+      final time = DateFormat("HH:mm:ss").parse(time24h);
+      return DateFormat("h:mm a").format(time);
+    } catch (e) {
+      return '';
+    }
+  }
 
   Color getStatusColor(String status) {
     switch (status) {
@@ -26,37 +52,45 @@ class _AppointmentState extends State<Appointment> {
     }
   }
 
-  dynamic _height;
-  dynamic _width;
+  Future<void> fetchAppointments() async {
+    final storedCode = await storage.read(key: 'trakcareCode');
+    final uri = Uri.parse('http://10.10.0.37/avstc/appRestApiCareProvider/getDoctorAppointment');
+    final String dateStr = DateFormat('dd/MM/yyyy').format(_selectedDate);
 
-  final Map<DateTime, List<Map<String, String>>> _dummyData = {
-    DateTime(2024, 10, 28): [
-      {'time': '9:00 am', 'code': 'M00442545', 'name': 'MARK ALI QAYYUM BIN MARK FAKHRI QAYYUM', 'status': 'Seen'},
-      {'time': '11:00 am', 'code': 'M00442567', 'name': 'LATIRA HAKIMAH', 'status': 'Waiting'},
-    ],
-    DateTime(2024, 10, 29): [
-      {'time': '10:00 am', 'code': 'M00442546', 'name': 'JONATHAN FEBRUARY', 'status': 'Arrived'},
-      {'time': '2:30 pm', 'code': 'M00442323', 'name': 'LEONA MAY', 'status': 'Seen'},
-      {'time': '4:00 pm', 'code': 'M00478990', 'name': 'FABRESE JOY', 'status': 'Waiting'},
-      {'time': '8:00 pm', 'code': 'M00477878', 'name': 'RIDSECT WANGI', 'status': ''},
-    ],
-    DateTime(2024, 11, 1): [
-      {'time': '11:00 am', 'code': 'M00442547', 'name': 'LATIPA BINTI ABU', 'status': 'Arrived'},
-    ],
-    DateTime(2024, 11, 25): [
-      {'time': '9:00 am', 'code': 'M00442545', 'name': 'MARK ALI QAYYUM BIN MARK FAKHRI QAYYUM', 'status': 'Seen'},
-      {'time': '11:00 am', 'code': 'M00442567', 'name': 'LATIRA HAKIMAH', 'status': 'Waiting'},
-    ],
-    DateTime(2025, 2, 7): [
-      {'time': '9:00 am', 'code': 'M00442545', 'name': 'MARK ALI QAYYUM BIN MARK FAKHRI QAYYUM', 'status': 'Seen'},
-      {'time': '11:00 am', 'code': 'M00442567', 'name': 'LATIRA HAKIMAH', 'status': 'Waiting'},
-    ]
-  };
+    setState(() {
+      trakCareCode = storedCode ?? '';
+    });
 
-  @override
-  void initState() {
-    super.initState();
-    _selectedDate = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+    final Map<String, dynamic> body = {
+      "dateFrom": dateStr,
+      "dateToo": dateStr,
+      "trakcareCode": trakCareCode,
+      "hospital" : widget.locationCode
+    };
+
+    try {
+      final response = await http.post(uri, body: body);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final List<dynamic> list = data['listPatient'] ?? [];
+
+        setState(() {
+          appointments = list.map<Map<String, String>>((item) {
+            return {
+              'mrn': item['patientMRN'] ?? '',
+              'name': item['patientName'] ?? '',
+              'time': convertToAmPm(item['admissionTime'] ?? ''),
+              'status': item['admissionType'] ?? '',
+            };
+          }).toList();
+        });
+      } else {
+        print('Failed to load appointments: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error fetching appointments: $e');
+    }
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -73,7 +107,7 @@ class _AppointmentState extends State<Appointment> {
               onPrimary: Colors.white,
               onSurface: Colors.black,
             ),
-            dialogBackgroundColor: Colors.white
+            dialogBackgroundColor: Colors.white,
           ),
           child: child!,
         );
@@ -83,32 +117,22 @@ class _AppointmentState extends State<Appointment> {
       setState(() {
         _selectedDate = DateTime(pickedDate.year, pickedDate.month, pickedDate.day);
       });
+      fetchAppointments();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-
-    final String formattedDate = DateFormat('EEE, MMM d').format(_selectedDate);
-
+    final String formattedDate = DateFormat('d MMMM yyyy').format(_selectedDate);
     _height = MediaQuery.of(context).size.height;
     _width = MediaQuery.of(context).size.width;
 
-    List<Map<String, String>> appointments = _dummyData[DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day)] ?? [];
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Appointment',
-          style: TextStyle(
-            color: turquoise,
-          )  ,
-        ),
-        backgroundColor: Colors.white,
+        title: const Text('Appointment', style: TextStyle(color: Colors.white)),
+        backgroundColor: turquoise,
         centerTitle: true,
-        iconTheme: const IconThemeData(
-            color: turquoise
-        ),
+        iconTheme: const IconThemeData(color: Colors.white),
         leading: IconButton(
           onPressed: () => Navigator.of(context).pop(),
           icon: Icon(
@@ -118,181 +142,159 @@ class _AppointmentState extends State<Appointment> {
         ),
         elevation: 20,
       ),
-      body: Column(
-        children: [
-          SizedBox(
-            height: _height * 0.05,
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: GestureDetector(
-              onTap: () => _selectDate(context),
-              child: Card(
-                // shadowColor: Colors.grey,
-                // elevation: 10,
-                // color: const Color(0xFF40e0d0),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  side: const BorderSide(
-                    color: turquoise,
-                    width: 2
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(height: _height * 0.02),
-                    // Text(
-                    //   '     Select Date',
-                    //   style: TextStyle(fontSize: _width * 0.035),
-                    // ),
-                    // SizedBox(
-                    //   height: _height * 0.01,
-                    // ),
-                    Row(
+      body: Container(
+        color: const Color(0xFFf4f9fa),
+        child: Column(
+          children: [
+            SizedBox(height: _height * 0.02),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12.0),
+              child: GestureDetector(
+                onTap: () => _selectDate(context),
+                child: Card(
+                  color: const Color(0xFFc5e5ed),
+                  elevation: 5,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      vertical: _height * 0.02,
+                      horizontal: _width * 0.04,
+                    ),
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          '   $formattedDate',
+                          DateFormat('EEE, MMM d, yyyy').format(_selectedDate),
                           style: TextStyle(
                             fontSize: _width * 0.05,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        Padding(
-                          padding: EdgeInsets.only(right: _width * 0.03),
-                          child: GestureDetector(
-                            onTap: () => _selectDate(context),
-                            child: Icon(
-                              Icons.calendar_month_rounded,
-                              size: _width * 0.07,
+                        Icon(Icons.calendar_month_rounded, color: turquoise, size: _width * 0.07),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(height: _height * 0.015),
+            Expanded(
+              child: appointments.isEmpty
+                  ? Center(
+                child: Text(
+                  'No appointments',
+                  style: TextStyle(
+                    fontSize: _width * 0.045,
+                    color: Colors.grey,
+                  ),
+                ),
+              )
+                  : ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                itemCount: appointments.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 4),
+                itemBuilder: (context, index) {
+                  final appointment = appointments[index];
+                  final timeParts = appointment['time']?.split(' ') ?? [''];
+                  final hour = timeParts[0];
+                  final period = timeParts.length > 1 ? timeParts[1] : '';
+                  final status = appointment['status'] ?? 'Unknown';
+                  final isLast = index == appointments.length - 1;
+
+                  return IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Timeline section
+                        SizedBox(
+                          width: _width * 0.08,
+                          child: Column(
+                            children: [
+                              // Timeline dot
+                              Container(
+                                width: 10,
+                                height: 9,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: turquoise
+                                ),
+                              ),
+                              // Timeline line (don't show for last item)
+                              if (!isLast)
+                                Expanded(
+                                  child: Container(
+                                    width: 1,
+                                    color: turquoise,
+                                    margin: const EdgeInsets.only(top: 4),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        // Content section
+                        Expanded(
+                          child: Container(
+                            height: _height * 0.06,
+                            margin: EdgeInsets.only(left: _width * 0.03),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.withOpacity(0.1),
+                                  spreadRadius: 1,
+                                  blurRadius: 3,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                SizedBox(width: _width * 0.04),
+                                // Time display
+                                SizedBox(
+                                  width: _width * 0.2,
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '$hour $period',
+                                        style: TextStyle(
+                                          fontSize: _width * 0.04,
+                                          fontFamily: 'Roboto',
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.black,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                // MRN display
+                                Expanded(
+                                  child: Center(
+                                    child: Text(
+                                      appointment['mrn'] != '' ? appointment['mrn'] ?? '' : 'New Patient',
+                                      style: TextStyle(
+                                        fontFamily: 'Roboto',
+                                        fontSize: _width * 0.045,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(width: _width * 0.04),
+                              ],
                             ),
                           ),
                         ),
                       ],
                     ),
-                    SizedBox(height: _height * 0.02),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: appointments.length,
-              itemBuilder: (context, index) {
-                final appointment = appointments[index];
-                final timeParts = appointment['time']?.split(' ') ?? [''];
-                final hour = timeParts[0];
-                final period = timeParts.length > 1 ? timeParts[1] : '';
-                final status = appointment['status'] ?? 'Unknown';
-
-                return Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4
-                  ),
-                  child: SizedBox(
-                    height: _height * 0.12,
-                    child: Card(
-                      elevation: 5,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      shadowColor: Colors.grey,
-                      child: Row(
-                        children: [
-                          // SizedBox(
-                          //   width: _width * 0.02,
-                          // ),
-                          // Text(
-                          //   '${index + 1}.',
-                          //   style: TextStyle(
-                          //     fontSize: _width * 0.045,
-                          //     color: Colors.black,
-                          //   ),
-                          // ),
-                          SizedBox(
-                            width: _width * 0.18,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  hour,
-                                  style: TextStyle(
-                                    fontSize: _width * 0.05,
-                                    fontWeight: FontWeight.bold,
-                                    color: turquoise
-                                  ),
-                                ),
-                                Text(
-                                  period,
-                                  style: TextStyle(
-                                    fontSize: _width * 0.05,
-                                    fontWeight: FontWeight.bold,
-                                    color: turquoise
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const VerticalDivider(
-                            color: Colors.black,
-                            thickness: 2
-                          ),
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8.0
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    appointment['code'] ?? '',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold
-                                    ),
-                                  ),
-                                  Text(
-                                    appointment['name'] ?? '',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(fontSize: _width * 0.04),
-                                  ),
-                                  // (appointment['status'] != '') ? Text(
-                                  //   status,
-                                  //   style: TextStyle(
-                                  //       fontSize: _width * 0.04,
-                                  //       color: getStatusColor(appointment['status'] ?? ''),
-                                  //       fontWeight: FontWeight.w600
-                                  //   ),
-                                  // ) : const Center(),
-                                ],
-                              ),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8.0),
-                            child: Text(
-                              status,
-                              style: TextStyle(
-                                fontSize: _width * 0.04,
-                                color: getStatusColor(appointment['status'] ?? ''),
-                                fontWeight: FontWeight.w600
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

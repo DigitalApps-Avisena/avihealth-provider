@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:animate_do/animate_do.dart';
 import 'package:avihealth_provider/Widgets/const.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:keyboard_dismisser/keyboard_dismisser.dart';
 
 class ForgotPassword extends StatefulWidget {
@@ -177,8 +180,8 @@ class _ForgotPasswordState extends State<ForgotPassword> {
                                           TextFormField(
                                             controller: controllerEmail,
                                             obscureText: false,
-                                            style: const TextStyle(
-                                              fontSize: 20.0,
+                                            style: TextStyle(
+                                              fontSize: _width * 0.04,
                                               color: Colors.black
                                             ),
                                             validator: (val) {
@@ -186,51 +189,59 @@ class _ForgotPasswordState extends State<ForgotPassword> {
                                                 r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+"
                                               ).hasMatch(val!) ? null : "Please Enter Correct Email";
                                             },
-                                            decoration: const InputDecoration(
-                                            contentPadding:
-                                              EdgeInsets.only(top: 20), // add padding to adjust text
-                                              isDense: true,
-                                              prefixIcon: Padding(
-                                                padding: EdgeInsets.only(top: 10), // add padding to adjust icon
-                                                child: Icon(
-                                                  Icons.email,
-                                                  color: Colors.grey,
+                                              decoration: InputDecoration(
+                                                contentPadding: EdgeInsets.only(
+                                                    top: _height * 0.02
                                                 ),
-                                              ),
-                                              hintText: "Email",
-                                              hintStyle: TextStyle(color: Colors.grey, fontSize: 15),
-                                              border: InputBorder.none
-                                            ),
-                                          ),
-                                          const SizedBox(height: 30.0),
-                                          TextFormField(
-                                            controller: controllerIc,
-                                            obscureText: false,
-                                            style: const TextStyle(
-                                              fontSize: 20.0,
-                                              color: Colors.black
-                                            ),
-                                            validator: (val) {
-                                              return RegExp(
-                                                  r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+"
-                                              ).hasMatch(val!) ? null : "Please Enter Correct Email";
-                                            },
-                                            decoration: const InputDecoration(
-                                              contentPadding:
-                                              EdgeInsets.only(top: 20), // add padding to adjust text
-                                              isDense: true,
-                                              prefixIcon: Padding(
-                                                padding: EdgeInsets.only(top: 10), // add padding to adjust icon
-                                                child: Icon(
-                                                  Icons.person_sharp,
-                                                  color: Colors.grey,
+                                                isDense: true,
+                                                prefixIcon: Padding(
+                                                  padding: EdgeInsets.only(
+                                                      top: _height * 0.01
+                                                  ),
+                                                  child: Icon(
+                                                    Icons.email,
+                                                    color: Colors.grey,
+                                                    size: _width * 0.06,
+                                                  ),
                                                 ),
+                                                hintText: "Email",
+                                                hintStyle: TextStyle(
+                                                    color: Colors.grey,
+                                                    fontFamily: 'Roboto',
+                                                    fontSize: _width * 0.033
+                                                ),
+                                                border: InputBorder.none,
                                               ),
-                                              hintText: "IC No.",
-                                              hintStyle: TextStyle(color: Colors.grey, fontSize: 15),
-                                              border: InputBorder.none
-                                            ),
                                           ),
+                                          // const SizedBox(height: 30.0),
+                                          // TextFormField(
+                                          //   controller: controllerIc,
+                                          //   obscureText: false,
+                                          //   style: const TextStyle(
+                                          //     fontSize: 20.0,
+                                          //     color: Colors.black
+                                          //   ),
+                                          //   validator: (val) {
+                                          //     return RegExp(
+                                          //         r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+"
+                                          //     ).hasMatch(val!) ? null : "Please Enter Correct Email";
+                                          //   },
+                                          //   decoration: const InputDecoration(
+                                          //     contentPadding:
+                                          //     EdgeInsets.only(top: 20), // add padding to adjust text
+                                          //     isDense: true,
+                                          //     prefixIcon: Padding(
+                                          //       padding: EdgeInsets.only(top: 10), // add padding to adjust icon
+                                          //       child: Icon(
+                                          //         Icons.person_sharp,
+                                          //         color: Colors.grey,
+                                          //       ),
+                                          //     ),
+                                          //     hintText: "Doctor ID.",
+                                          //     hintStyle: TextStyle(color: Colors.grey, fontSize: 15),
+                                          //     border: InputBorder.none
+                                          //   ),
+                                          // ),
                                         ],
                                       ),
                                     ),
@@ -255,7 +266,20 @@ class _ForgotPasswordState extends State<ForgotPassword> {
                                     child: MaterialButton(
                                       minWidth: MediaQuery.of(context).size.width,
                                       padding: const EdgeInsets.fromLTRB(20.0, 15.0, 20.0, 15.0),
-                                      onPressed: () {},
+                                      onPressed: () async {
+                                        var email = controllerEmail.text;
+                                        final uri = Uri.parse('http://10.10.0.37/trakcare/web/custom/demc/csp/AVS/APP/API/restAPIcareProvider.csp?reqNumber=2&email=${email}');
+                                        try {
+                                          final response = await http.post(
+                                              uri
+                                          );
+                                          final data = jsonDecode(response.body);
+                                          print('apa $data');
+                                          print('dasd ${data['code']}');
+                                        } catch (e) {
+                                          print('salah');
+                                        }
+                                      },
                                       child: Row(
                                         mainAxisAlignment: MainAxisAlignment.center,
                                         crossAxisAlignment: CrossAxisAlignment.center,

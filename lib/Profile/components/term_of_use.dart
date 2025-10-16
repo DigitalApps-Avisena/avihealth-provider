@@ -37,6 +37,9 @@ class _TermOfUseState extends State<TermOfUse> {
             color: Colors.white,
           ),
         ),
+        iconTheme: const IconThemeData(
+            color: Colors.white
+        ),
         leading: IconButton(
           onPressed: () => Navigator.of(context).pop(),
           icon: const Icon(
@@ -44,7 +47,7 @@ class _TermOfUseState extends State<TermOfUse> {
             size: 18,
           ),
         ),
-        backgroundColor: violet,
+        backgroundColor: turquoise,
       ),
       backgroundColor: Colors.white,
       body: PdfViewPinch(

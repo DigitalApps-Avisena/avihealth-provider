@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 class ClinicHour extends StatefulWidget {
-  const ClinicHour({Key? key}) : super(key: key);
+  const ClinicHour({Key? key, required this.locationCode}) : super(key: key);
+  final String locationCode;
 
   @override
   State<ClinicHour> createState() => _ClinicHourState();
@@ -55,123 +56,47 @@ class _ClinicHourState extends State<ClinicHour> {
       appBar: AppBar(
         title: const Text(
           'Clinic Hour',
-          style: TextStyle(
-            color: turquoise,
-          ),
+          style: TextStyle(color: Colors.white),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: turquoise,
         centerTitle: true,
-        iconTheme: const IconThemeData(
-            color: turquoise
-        ),
+        iconTheme: const IconThemeData(color: Colors.white),
         leading: IconButton(
           onPressed: () => Navigator.of(context).pop(),
-          icon: Icon(
-            Icons.arrow_back_ios_new_rounded,
-            size: _width * 0.05,
-          ),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, size: _width * 0.05),
         ),
         elevation: 20,
       ),
+      backgroundColor: const Color(0xFFf4f9fa),
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // SizedBox(
-            //   height: _height * 0.03,
-            // ),
-
-            // Center(
-            //   child: Card(
-            //     elevation: 5,
-            //     shape: RoundedRectangleBorder(
-            //       borderRadius: BorderRadius.circular(20),
-            //     ),
-            //     child: Padding(
-            //       padding: const EdgeInsets.all(14.0),
-            //       child: Column(
-            //         children: [
-            //           const CircleAvatar(
-            //             backgroundImage: AssetImage('assets/images/demo_image.jpg'),
-            //             radius: 50,
-            //           ),
-            //           SizedBox(
-            //             height: _height * 0.04,
-            //           ),
-            //           Text(
-            //             'Ayu Sleeping Ayu Sleeping Brother John',
-            //             style: TextStyle(
-            //               fontFamily: 'Roboto',
-            //               fontSize: _width * 0.04,
-            //               fontWeight: FontWeight.bold
-            //             ),
-            //           ),
-            //           SizedBox(
-            //             height: _height * 0.02,
-            //           ),
-            //           const Text(
-            //             'Heart and Lung Specialist Unit',
-            //             style: TextStyle(
-            //               fontFamily: 'Roboto'
-            //             ),
-            //           )
-            //         ],
-            //       ),
-            //     ),
-            //   ),
-            // ),
-            SizedBox(
-              height: _height * 0.05,
-            ),
+            SizedBox(height: _height * 0.02),
             Padding(
-              padding: const EdgeInsets.all(12.0),
+              padding: const EdgeInsets.symmetric(horizontal: 12.0),
               child: GestureDetector(
                 onTap: () => _selectDate(context),
                 child: Card(
-                  // shadowColor: Colors.grey,
-                  // elevation: 10,
-                  // color: const Color(0xFF40e0d0),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    side: const BorderSide(
-                        color: turquoise,
-                        width: 2
+                  color: const Color(0xFFc5e5ed),
+                  elevation: 5,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      vertical: _height * 0.02,
+                      horizontal: _width * 0.04,
                     ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(height: _height * 0.02),
-                      // Text(
-                      //   '     Select Date',
-                      //   style: TextStyle(fontSize: _width * 0.035),
-                      // ),
-                      // SizedBox(
-                      //   height: _height * 0.01,
-                      // ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '   $formattedDate',
-                            style: TextStyle(
-                              fontSize: _width * 0.05,
-                              fontWeight: FontWeight.bold,
-                            ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          DateFormat('EEE, MMM d, yyyy').format(_selectedDate),
+                          style: TextStyle(
+                            fontSize: _width * 0.05,
+                            fontWeight: FontWeight.bold,
                           ),
-                          Padding(
-                            padding: EdgeInsets.only(right: _width * 0.03),
-                            child: GestureDetector(
-                              onTap: () => _selectDate(context),
-                              child: Icon(
-                                Icons.calendar_month_rounded,
-                                size: _width * 0.07,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: _height * 0.02),
-                    ],
+                        ),
+                        Icon(Icons.calendar_month_rounded, color: turquoise, size: _width * 0.07),
+                      ],
+                    ),
                   ),
                 ),
               ),

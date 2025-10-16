@@ -27,8 +27,8 @@ class _MyAccountState extends State<MyAccount> {
   dynamic _width;
 
   var name;
+  var profileImage;
   var email;
-  var phone;
 
   String? selectedImagePath;
   String? _base64Image;
@@ -46,20 +46,20 @@ class _MyAccountState extends State<MyAccount> {
 
   credential() async {
     // name = await storage.read(key: 'username');
-    name = 'Dr. John Doe';
-    phone = await storage.read(key: 'phone');
+    name = await storage.read(key: 'name');
+    profileImage = await storage.read(key: 'image');
+    email = await storage.read(key: 'email');
 
     setState(() {
       controllerName.text = name;
-      controllerEmail.text = 'test@avisena.com.my';
-      controllerPhone.text = phone;
+      controllerEmail.text = email;
     });
   }
 
   Future<void> _saveProfilePhoto(File file) async {
     final bytes = await file.readAsBytes();
     final base64Image = base64Encode(bytes);
-    await storage.write(key: 'profile_photo', value: base64Image);
+    await storage.write(key: 'name', value: base64Image);
     setState(() {
       _base64Image = base64Image;
       image = file;
@@ -180,17 +180,17 @@ class _MyAccountState extends State<MyAccount> {
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
-        backgroundColor: Colors.white,
+        backgroundColor: turquoise,
         title: Text(
           "My Account",
           style: TextStyle(
               fontSize: _width * 0.05,
               fontFamily: 'WorkSans',
-              color: turquoise
+              color: Colors.white
           ),
         ),
         iconTheme: const IconThemeData(
-            color: turquoise
+            color: Colors.white
         ),
         leading: IconButton(
           onPressed: () => Navigator.of(context).pop(),
@@ -213,9 +213,11 @@ class _MyAccountState extends State<MyAccount> {
                 child: CircleAvatar(
                   backgroundImage: image != null
                       ? FileImage(image!)
-                      : (_base64Image != null
-                      ? MemoryImage(base64Decode(_base64Image!))
-                      : const AssetImage('assets/images/demo_image.jpg') as ImageProvider),
+                      : (_base64Image != null && _base64Image!.startsWith('data:image'))
+                      ? MemoryImage(base64Decode(_base64Image!.split(',').last))
+                      : (profileImage != null && profileImage!.startsWith('http'))
+                      ? NetworkImage(profileImage!)
+                      : const AssetImage('assets/images/demo_image.jpg') as ImageProvider,
                   radius: 80,
                 ),
               ),
@@ -306,40 +308,40 @@ class _MyAccountState extends State<MyAccount> {
                   const SizedBox(
                     height: 20,
                   ),
-                  Row(
-                    children: const [
-                      Text('Phone'),
-                    ],
-                  ),
-                  SizedBox(
-                    height: _height * 0.01,
-                  ),
-                  TextFormField(
-                    controller: controllerPhone,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.0),
-                        borderSide: const BorderSide(
-                          color: turquoise,
-                          width: 2.0,
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.0),
-                        borderSide: BorderSide(
-                          color: Colors.grey.shade500,
-                          width: 2.0,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.0),
-                        borderSide: const BorderSide(
-                          color: turquoise,
-                          width: 2.0,
-                        ),
-                      ),
-                    ),
-                  ),
+                  // Row(
+                  //   children: const [
+                  //     Text('Phone'),
+                  //   ],
+                  // ),
+                  // SizedBox(
+                  //   height: _height * 0.01,
+                  // ),
+                  // TextFormField(
+                  //   controller: controllerPhone,
+                  //   decoration: InputDecoration(
+                  //     border: OutlineInputBorder(
+                  //       borderRadius: BorderRadius.circular(12.0),
+                  //       borderSide: const BorderSide(
+                  //         color: turquoise,
+                  //         width: 2.0,
+                  //       ),
+                  //     ),
+                  //     enabledBorder: OutlineInputBorder(
+                  //       borderRadius: BorderRadius.circular(12.0),
+                  //       borderSide: BorderSide(
+                  //         color: Colors.grey.shade500,
+                  //         width: 2.0,
+                  //       ),
+                  //     ),
+                  //     focusedBorder: OutlineInputBorder(
+                  //       borderRadius: BorderRadius.circular(12.0),
+                  //       borderSide: const BorderSide(
+                  //         color: turquoise,
+                  //         width: 2.0,
+                  //       ),
+                  //     ),
+                  //   ),
+                  // ),
                 ],
               ),
             ),
@@ -356,12 +358,13 @@ class _MyAccountState extends State<MyAccount> {
           child: const Text(
             'Save',
             style: TextStyle(
-                fontWeight: FontWeight.bold
+              color: Colors.white,
+              fontWeight: FontWeight.bold
             ),
           ),
           style: ElevatedButton.styleFrom(
             elevation: 5,
-            primary: turquoise,
+            backgroundColor: turquoise,
             padding: EdgeInsets.all(_width * 0.05),
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(30)

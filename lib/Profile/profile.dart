@@ -26,8 +26,9 @@ class _ProfileState extends State<Profile> {
   dynamic _width;
 
   var opacity = 0.0;
-  var name;
-  var phone;
+  String? name;
+  var email;
+  var profileImage;
 
   final storage = const FlutterSecureStorage();
 
@@ -39,7 +40,7 @@ class _ProfileState extends State<Profile> {
   void initState() {
     // TODO: implement initState
     super.initState();
-    credential();
+    // credential();
     Future.delayed(Duration.zero, () {
       animator();
 
@@ -48,21 +49,42 @@ class _ProfileState extends State<Profile> {
     _loadProfilePhoto();
   }
 
+  // Future<void> _loadProfilePhoto() async {
+  //   // print('sdd');
+  //   // final base64Image = await storage.read(key: 'image');
+  //   // print('adsdsa $_base64Image');
+  //   // if (base64Image != null) {
+  //   //   setState(() {
+  //   //     _base64Image = base64Image;
+  //   //     image = File.fromRawPath(base64Decode(base64Image));
+  //   //   });
+  //   // }
+  //
+  //   // await storage.delete(key: 'profile_photo');
+  // }
+
   Future<void> _loadProfilePhoto() async {
-    print('sdd');
-    final base64Image = await storage.read(key: 'profile_photo');
-    print('adsdsa $_base64Image');
-    if (base64Image != null) {
-      setState(() {
-        _base64Image = base64Image;
-        image = File.fromRawPath(base64Decode(base64Image));
-      });
-    }
-    // await storage.delete(key: 'profile_photo');
+    final storedName = await storage.read(key: 'name');
+    final storedEmail = await storage.read(key: 'email');
+    final storedImage = await storage.read(key: 'image');
+
+    setState(() {
+      name = storedName;
+      email = storedEmail;
+
+      if (storedImage != null && storedImage.startsWith('data:image')) {
+        final base64Str = storedImage.split(',').last;
+        final bytes = base64Decode(base64Str);
+        image = File.fromRawPath(bytes);
+        _base64Image = storedImage;
+      } else if (storedImage != null && storedImage.startsWith('http')) {
+        profileImage = storedImage;
+      }
+    });
   }
+
   credential() async {
-    name = await storage.read(key: 'username');
-    phone = await storage.read(key: 'phone');
+    name = await storage.read(key: 'name');
   }
 
   animator() {
@@ -85,17 +107,17 @@ class _ProfileState extends State<Profile> {
     return Scaffold(
         appBar: AppBar(
           centerTitle: true,
-          backgroundColor: Colors.white,
+          backgroundColor: turquoise,
           title: Text(
             "Profile",
             style: TextStyle(
               fontSize: _width * 0.05,
               fontFamily: 'WorkSans',
-              color: turquoise
+              color: Colors.white
             ),
           ),
           iconTheme: const IconThemeData(
-            color: turquoise
+            color: Colors.white
           ),
           leading: IconButton(
             onPressed: () {
@@ -109,7 +131,15 @@ class _ProfileState extends State<Profile> {
         ),
         body: Container(
           width: double.infinity,
-          color: turquoise,
+          decoration: BoxDecoration(
+            // borderRadius: const BorderRadius.all(Radius.circular(15)),
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [Constants.skyblue,turquoise],
+              stops: const [0.2, 1.0],
+            ),
+          ),
           // decoration: const BoxDecoration(
           //   gradient: LinearGradient(begin: Alignment.topCenter, colors: [
           //     Color(0xFFA92389),
@@ -160,9 +190,9 @@ class _ProfileState extends State<Profile> {
                                 fontFamily: 'WorkSans',
                               ),
                             ),
-                            trailing: Wrap(
+                            trailing: const Wrap(
                               spacing: 12,
-                              children: const [
+                              children: [
                                 Icon(
                                   Icons.keyboard_arrow_right_rounded
                                 ),
@@ -195,9 +225,9 @@ class _ProfileState extends State<Profile> {
                                 fontFamily: 'WorkSans',
                               ),
                             ),
-                            trailing: Wrap(
+                            trailing: const Wrap(
                               spacing: 12,
-                              children: const [
+                              children: [
                                 Icon(
                                   Icons.keyboard_arrow_right_rounded
                                 ),
@@ -233,9 +263,9 @@ class _ProfileState extends State<Profile> {
                                 fontFamily: 'WorkSans',
                               ),
                             ),
-                            trailing: Wrap(
+                            trailing: const Wrap(
                               spacing: 12,
-                              children: const [
+                              children: [
                                 Icon(
                                   Icons.keyboard_arrow_right_rounded
                                 ),
@@ -271,9 +301,9 @@ class _ProfileState extends State<Profile> {
                                 fontFamily: 'WorkSans',
                               ),
                             ),
-                            trailing: Wrap(
+                            trailing: const Wrap(
                               spacing: 12,
-                              children: const [
+                              children: [
                                 Icon(
                                   Icons.keyboard_arrow_right_rounded
                                 ),
@@ -306,9 +336,9 @@ class _ProfileState extends State<Profile> {
                                 fontFamily: 'WorkSans',
                               ),
                             ),
-                            trailing: Wrap(
+                            trailing: const Wrap(
                               spacing: 12,
-                              children: const [
+                              children: [
                                 Icon(
                                   Icons.keyboard_arrow_right_rounded
                                 ),
@@ -342,7 +372,7 @@ class _ProfileState extends State<Profile> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: <Widget>[
                     Text(
-                      name,
+                      name ?? '',
                       style: const TextStyle(
                         fontSize: 18,
                         color: Colors.black,
@@ -355,11 +385,11 @@ class _ProfileState extends State<Profile> {
                     ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        SizedBox(width: 5,),
+                      children: [
+                        const SizedBox(width: 5,),
                         Text(
-                          'test@avisena.com.my',
-                          style: TextStyle(
+                          email ?? '',
+                          style: const TextStyle(
                             fontSize: 17.5,
                             color: Colors.black54,
                             fontFamily: 'WorkSans',
@@ -370,19 +400,19 @@ class _ProfileState extends State<Profile> {
                     const SizedBox(
                       height: 2,
                     ),
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          phone,
-                          style: const TextStyle(
-                            fontSize: 17.5,
-                            color: Colors.black54,
-                            fontFamily: 'Roboto',
-                          ),
-                        )
-                      ],
-                    ),
+                    // const Column(
+                    //   mainAxisAlignment: MainAxisAlignment.center,
+                    //   children: [
+                    //     Text(
+                    //       '+60 12 3456789',
+                    //       style: TextStyle(
+                    //         fontSize: 17.5,
+                    //         color: Colors.black54,
+                    //         fontFamily: 'Roboto',
+                    //       ),
+                    //     )
+                    //   ],
+                    // ),
                   ],
                 ),
               ),
@@ -393,10 +423,17 @@ class _ProfileState extends State<Profile> {
                   borderRadius: BorderRadius.circular(70),
                   border: Border.all(width: 1.5, color: const Color(0xFFFFFFFF)),
                   image: DecorationImage(
+                    // image: image != null
+                    //     ? FileImage(image!)
+                    //     : (_base64Image != null)
+                    //     ? NetworkImage(profileImage)
+                    //     : const AssetImage('assets/images/demo_image.jpg') as ImageProvider,
                     image: image != null
                         ? FileImage(image!)
-                        : (_base64Image != null)
-                        ? MemoryImage(base64Decode(_base64Image!))
+                        : (_base64Image != null && _base64Image!.startsWith('data:image'))
+                        ? MemoryImage(base64Decode(_base64Image!.split(',').last))
+                        : (profileImage != null && profileImage!.startsWith('http'))
+                        ? NetworkImage(profileImage!)
                         : const AssetImage('assets/images/demo_image.jpg') as ImageProvider,
                   ),
                   boxShadow: const [

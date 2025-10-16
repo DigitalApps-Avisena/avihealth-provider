@@ -1,9 +1,15 @@
+import 'dart:convert';
+
 import 'package:avihealth_provider/InpatientALOS/episode_details.dart';
 import 'package:avihealth_provider/Widgets/const.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http show post;
+import 'package:intl/intl.dart';
 
 class Inpatient extends StatefulWidget {
-  const Inpatient({Key? key}) : super(key: key);
+  const Inpatient({Key? key, required this.locationCode}) : super(key: key);
+  final String locationCode;
 
   @override
   State<Inpatient> createState() => _InpatientState();
@@ -11,161 +17,205 @@ class Inpatient extends StatefulWidget {
 
 class _InpatientState extends State<Inpatient> {
 
-  dynamic _height;
-  dynamic _width;
+  Map<String, dynamic>? inpatientData;
+  DateTime _selectedDate = DateTime.now();
 
-  final Map<String, List<Map<String, String>>> monthlyPatients = {
-    '7 February 2025': [
-      {'name': 'MARK ALI QAYYUM BIN MARK FAKHRI QAYYUM', 'floor': 'Level 7', 'room': '1', 'los': '2'},
-      {'name': 'ABDULLAH HUKUM', 'floor': 'Level 7', 'room': '3', 'los': '4'},
-      {'name': 'SYED KARTINI BIN SYED ALHADAD', 'floor': 'Level 8', 'room': '1', 'los': '1'},
-      {'name': 'YEOW RUO MING', 'floor': 'Level 8', 'room': '17', 'los': '2'},
-      {'name': 'TANABATENUM', 'floor': 'Level 11', 'room': '1', 'los': '3'},
-      {'name': 'LAKIMONOREL', 'floor': 'Level 11', 'room': '7', 'los': '1'},
-      {'name': 'CHI CHONG CHEW', 'floor': 'Level 15', 'room': '1', 'los': '2'},
-    ]
-  };
+  final storage = const FlutterSecureStorage();
 
-  Map<String, List<Map<String, String>>> groupByFloor(List<Map<String, String>> patients) {
-    Map<String, List<Map<String, String>>> groupedPatients = {};
-    for (var patient in patients) {
-      String floor = patient['floor'] ?? 'Unknown Floor';
-      if (groupedPatients[floor] == null) {
-        groupedPatients[floor] = [];
+  bool loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDate = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+    fetchInpatient();
+  }
+
+  Future<void> fetchInpatient() async {
+    final storedCode = await storage.read(key: 'trakcareCode');
+    final uri = Uri.parse('http://10.10.0.37/avstc/appRestApiCareProvider/listCurrentInpatient');
+
+    final Map<String, dynamic> body = {
+      'trakcareCode': storedCode,
+      'hospital': widget.locationCode,
+    };
+
+    try {
+      final response = await http.post(uri, body: body);
+      print('terst ${response.body}');
+      if (response.statusCode == 200) {
+        setState(() {
+          inpatientData = jsonDecode(response.body);
+          print('start $inpatientData');
+          loading = false;
+        });
+      } else {
+        throw Exception("Failed to load data");
       }
-      groupedPatients[floor]?.add(patient);
+    } catch (e) {
+      setState(() {
+        loading = false;
+      });
+      debugPrint("Error: $e");
     }
-    return groupedPatients;
   }
 
   @override
   Widget build(BuildContext context) {
-
-    _height = MediaQuery.of(context).size.height;
-    _width = MediaQuery.of(context).size.width;
-
-    String date = '7 February 2025';
-    List<Map<String, String>> patients = monthlyPatients[date] ?? [];
-    Map<String, List<Map<String, String>>> groupedPatients = groupByFloor(patients);
+    final _width = MediaQuery.of(context).size.width;
+    final _height = MediaQuery.of(context).size.height;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text(
           'Inpatient',
-          style: TextStyle(
-            color: turquoise,
-          ),
+          style: TextStyle(color: Colors.white),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: turquoise,
         centerTitle: true,
-        iconTheme: const IconThemeData(
-            color: turquoise
-        ),
+        iconTheme: const IconThemeData(color: Colors.white),
         leading: IconButton(
           onPressed: () => Navigator.of(context).pop(),
-          icon: Icon(
-            Icons.arrow_back_ios_new_rounded,
-            size: _width * 0.05,
-          ),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, size: _width * 0.05),
         ),
         elevation: 20,
       ),
-      backgroundColor: Colors.grey.shade200,
-      body: Padding(
+      backgroundColor: const Color(0xFFf4f9fa),
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : inpatientData!['code'] != '1'
+          ? Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.data_exploration_rounded,
+                  color: Colors.grey.shade500,
+                  size: _width * 0.25,
+                ),
+                Text(
+                  'No Data For Inpatient',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: _width * 0.035,
+                    fontFamily: 'Roboto',
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+              ],
+            ),
+          )
+          : Padding(
         padding: EdgeInsets.symmetric(horizontal: _width * 0.05),
         child: ListView(
           children: [
-            Padding(
-              padding: EdgeInsets.only(top: _height * 0.05),
-              child: Text(
-                date,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: _width * 0.05,
-                  color: Colors.black87,
-                ),
-              ),
-            ),
             SizedBox(height: _height * 0.02),
-            ...groupedPatients.entries.map((entry) {
-              String floor = entry.key;
-              List<Map<String, String>> patientsOnFloor = entry.value;
+            ...((inpatientData!['listWard'] as List? ?? []).map((wardData) {
+              final wardMap = wardData as Map<String, dynamic>? ?? {};
+              String ward = wardMap['ward'] ?? 'Unknown Ward';
+              List patients = wardMap['listPatient'] as List? ?? [];
 
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Padding(
-                    padding: EdgeInsets.only(top: _height * 0.02),
-                    child: Text(
-                      floor,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: _width * 0.045,
-                        color: Colors.black87,
+                  Center(
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                          top: _height * 0.02
+                      ),
+                      child: Text(
+                        ward,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: _width * 0.045,
+                          color: Colors.black87,
+                        ),
                       ),
                     ),
                   ),
                   SizedBox(height: _height * 0.01),
-                  ...patientsOnFloor.asMap().entries.map((entry) {
-                    Map<String, String> patient = entry.value;
-                    return InkWell(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => EpisodeDetails(
-                              name: patient['name'],
-                            ),
-                          ),
-                        );
-                      },
+                  ...patients.map((p) {
+                    final patient = p as Map<String, dynamic>? ?? {};
+                    return SizedBox(
+                      width: double.infinity,
                       child: Card(
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(15),
                         ),
                         elevation: 3,
-                        child: Padding(
-                          padding: EdgeInsets.all(_width * 0.04),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                              colors: [Colors.white, Colors.grey.shade200, Colors.white],
+                              stops: const [0.5, 1.0, 1.5],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border(
+                              bottom: BorderSide(
+                                color: widget.locationCode == '1' ? turquoise : violet,
+                                width: 2.0,
+                              ),
+                            ),
+                          ),
+                          child: Padding(
+                            padding: EdgeInsets.all(_width * 0.04),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      patient['name']!,
+                                      "MRN: ${patient['mrn'] ?? '-'}",
                                       style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.black87,
+                                          fontFamily: 'Roboto'
                                       ),
                                     ),
                                     SizedBox(height: _height * 0.005),
                                     Text(
-                                      'Room: ${patient['room']!}',
-                                      style: TextStyle(color: Colors.grey[700]),
-                                      overflow: TextOverflow.ellipsis,
+                                      "Room Number: ${patient['roomNo'] ?? '-'}",
+                                      style: TextStyle(
+                                          color: Colors.grey[700],
+                                          fontFamily: 'Roboto'
+                                      ),
                                     ),
                                     SizedBox(height: _height * 0.005),
                                     Text(
-                                      'LOS: ${patient['los']!} days',
-                                      style: TextStyle(color: Colors.grey[700]),
-                                      overflow: TextOverflow.ellipsis,
+                                      "LOS: ${patient['los'] ?? '-'}",
+                                      style: TextStyle(
+                                          color: Colors.grey[700],
+                                          fontFamily: 'Roboto'
+                                      ),
+                                    ),
+                                    SizedBox(height: _height * 0.005),
+                                    Text(
+                                      "admission ID: ${patient['admissionID'] ?? '-'}",
+                                      style: TextStyle(
+                                          color: Colors.grey[700],
+                                          fontFamily: 'Roboto'
+                                      ),
                                     ),
                                   ],
                                 ),
-                              ),
-                            ],
+                                Icon(
+                                    Icons.arrow_forward_ios_rounded ,
+                                    size: _width  * 0.05,
+                                    color: Colors.black
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     );
                   }).toList(),
-                  // SizedBox(
-                  //   height: _height * 0.03,
-                  // ),
                 ],
               );
-            }).toList(),
+            }).toList()),
           ],
         ),
       ),

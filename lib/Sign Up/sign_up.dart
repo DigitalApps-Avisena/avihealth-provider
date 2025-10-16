@@ -283,7 +283,7 @@ class _SignUpState extends State<SignUp> {
                                       Flexible(
                                         child: TextButton(
                                           style: TextButton.styleFrom(
-                                            primary: turquoise,
+                                            backgroundColor: turquoise,
                                           ),
                                           child: Text(
                                             'Login Here',
@@ -291,6 +291,7 @@ class _SignUpState extends State<SignUp> {
                                               fontWeight: FontWeight.w900,
                                               decoration: TextDecoration.underline,
                                               fontSize: _width * 0.03,
+                                              color: Colors.white
                                             ),
                                           ),
                                           onPressed: () {

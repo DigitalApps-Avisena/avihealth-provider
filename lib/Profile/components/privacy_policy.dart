@@ -44,7 +44,10 @@ class _PrivacyPolicyState extends State<PrivacyPolicy> {
             size: 18,
           ),
         ),
-        backgroundColor: violet,
+        iconTheme: const IconThemeData(
+            color: Colors.white
+        ),
+        backgroundColor: turquoise,
       ),
       backgroundColor: Colors.white,
       body: PdfViewPinch(

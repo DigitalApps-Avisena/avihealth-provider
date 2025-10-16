@@ -1,43 +1,39 @@
+import 'dart:convert';
+
 import 'package:avihealth_provider/Widgets/const.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http show post;
 import 'package:intl/intl.dart';
 
 class OperationTheatre extends StatefulWidget {
-  const OperationTheatre({Key? key}) : super(key: key);
+  const OperationTheatre({Key? key, required this.locationCode}) : super(key: key);
+  final String locationCode;
 
   @override
   State<OperationTheatre> createState() => _OperationTheatreState();
 }
 
 class _OperationTheatreState extends State<OperationTheatre> {
+  DateTime _selectedDate = DateTime.now();
 
   dynamic _height;
   dynamic _width;
 
-  bool expand1 = false;
-  bool expand2 = false;
-  bool expand3 = false;
-  bool expand4 = false;
-  bool expand5 = false;
-  bool expand6 = false;
-  bool expand7 = false;
-  bool expand8 = false;
-  bool expand9 = false;
+  final storage = const FlutterSecureStorage();
 
-  String selectedData = 'ASH';
+  var totalBooked = 0;
+  var totalArrived = 0;
+  var totalDone = 0;
+  var otData;
 
-  DateTime _selectedDate = DateTime.now();
+  bool loading = true;
 
-  void showASHData() {
-    setState(() {
-      selectedData = 'ASH';
-    });
-  }
-
-  void showAWCSHData() {
-    setState(() {
-      selectedData = 'AWCSH';
-    });
+  @override
+  void initState() {
+    super.initState();
+    _selectedDate = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+    fetchOT();
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -54,8 +50,7 @@ class _OperationTheatreState extends State<OperationTheatre> {
                 onPrimary: Colors.white,
                 onSurface: Colors.black,
               ),
-              dialogBackgroundColor: Colors.white
-          ),
+              dialogBackgroundColor: Colors.white),
           child: child!,
         );
       },
@@ -63,14 +58,50 @@ class _OperationTheatreState extends State<OperationTheatre> {
     if (pickedDate != null && pickedDate != _selectedDate) {
       setState(() {
         _selectedDate = DateTime(pickedDate.year, pickedDate.month, pickedDate.day);
+        fetchOT();
       });
+    }
+  }
+
+  Future<void> fetchOT() async {
+    final storedCode = await storage.read(key: 'trakcareCode');
+    final uri = Uri.parse('http://10.10.0.37/avstc/appRestApiCareProvider/getOtDetail');
+    final String dateStr = DateFormat('dd/MM/yyyy').format(_selectedDate);
+
+    final Map<String, dynamic> body = {
+      'date': dateStr,
+      // 'trakcareCode': storedCode,
+      'trakcareCode': 'PHY11',
+      'hospital': widget.locationCode,
+    };
+
+    try {
+      final response = await http.post(uri, body: body);
+      print('terst ${response.body}');
+      if (response.statusCode == 200) {
+        setState(() {
+          otData = jsonDecode(response.body);
+          totalBooked = otData!['totalBooked'];
+          totalArrived = otData!['totalArrived'];
+          totalDone = otData!['totalDone'];
+          print('start $otData');
+          loading = false;
+        });
+      } else {
+        throw Exception("Failed to load data");
+      }
+    } catch (e) {
+      setState(() {
+        loading = false;
+      });
+      debugPrint("Error: $e");
     }
   }
 
   @override
   Widget build(BuildContext context) {
-
-    final String formattedDate = DateFormat('EEE, MMM d').format(_selectedDate);
+    final String formattedDate =
+    DateFormat('EEE, MMM d').format(_selectedDate);
 
     _height = MediaQuery.of(context).size.height;
     _width = MediaQuery.of(context).size.width;
@@ -80,14 +111,12 @@ class _OperationTheatreState extends State<OperationTheatre> {
         title: const Text(
           'Operation Theatre',
           style: TextStyle(
-            color: turquoise,
+            color: Colors.white,
           ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: turquoise,
         centerTitle: true,
-        iconTheme: const IconThemeData(
-            color: turquoise
-        ),
+        iconTheme: const IconThemeData(color: Colors.white),
         leading: IconButton(
           onPressed: () => Navigator.of(context).pop(),
           icon: Icon(
@@ -100,1816 +129,228 @@ class _OperationTheatreState extends State<OperationTheatre> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            SizedBox(
-              height: _height * 0.05,
-            ),
+            SizedBox(height: _height * 0.02),
             Padding(
-              padding: const EdgeInsets.all(12.0),
+              padding: const EdgeInsets.symmetric(horizontal: 12.0),
               child: GestureDetector(
                 onTap: () => _selectDate(context),
                 child: Card(
-                  // shadowColor: Colors.grey,
-                  // elevation: 10,
-                  // color: const Color(0xFF40e0d0),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    side: const BorderSide(
-                        color: turquoise,
-                        width: 2
+                  color: const Color(0xFFc5e5ed),
+                  elevation: 5,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      vertical: _height * 0.02,
+                      horizontal: _width * 0.04,
                     ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(height: _height * 0.02),
-                      // Text(
-                      //   '     Select Date',
-                      //   style: TextStyle(fontSize: _width * 0.035),
-                      // ),
-                      // SizedBox(
-                      //   height: _height * 0.01,
-                      // ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '   $formattedDate',
-                            style: TextStyle(
-                              fontSize: _width * 0.05,
-                              fontWeight: FontWeight.bold,
-                            ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          DateFormat('EEE, MMM d, yyyy').format(_selectedDate),
+                          style: TextStyle(
+                            fontSize: _width * 0.05,
+                            fontWeight: FontWeight.bold,
                           ),
-                          Padding(
-                            padding: EdgeInsets.only(right: _width * 0.03),
-                            child: GestureDetector(
-                              onTap: () => _selectDate(context),
-                              child: Icon(
-                                Icons.calendar_month_rounded,
-                                size: _width * 0.07,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: _height * 0.02),
-                    ],
+                        ),
+                        Icon(Icons.calendar_month_rounded, color: turquoise, size: _width * 0.07),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal:12.0),
-              child: Card(
-                color: Constants.skyblue,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    GestureDetector(
-                      onTap: showASHData,
-                      child: Card(
-                        color: selectedData == 'ASH'
-                            ? Colors.white
-                            : Constants.skyblue,
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(horizontal: _width * 0.15, vertical: _width * 0.02),
-                          child: const Text(
-                            'ASH'
-                          ),
-                        ),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: showAWCSHData,
-                      child: Card(
-                        color: selectedData == 'AWCSH'
-                            ? Colors.white
-                            : Constants.skyblue,
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(horizontal: _width * 0.15, vertical: _width * 0.02),
-                          child: const Text(
-                            'AWCSH'
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              padding: EdgeInsets.symmetric(vertical: _height * 0.02),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildSummaryCard("Total\nBooked", totalBooked),
+                  SizedBox(width: _width * 0.05),
+                  _buildSummaryCard("Total\nArrived", totalArrived),
+                  SizedBox(width: _width * 0.05),
+                  _buildSummaryCard("Total\n  Done  ", totalDone),
+                ],
               ),
             ),
-            selectedData == 'ASH' ?
-            Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal:12.0),
-                  child: Card(
-                    child: Column(
-                      children: [
-                        Card(
-                          color: Constants.skyblue,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              Column(
-                                children: [
-                                  const Text(
-                                      'Booked'
-                                  ),
-                                  SizedBox(
-                                    height: _height * 0.02,
-                                  ),
-                                  const Text(
-                                    '18',
-                                    style: TextStyle(
-                                        fontSize: 24
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Column(
-                                children: [
-                                  const Text(
-                                      'Arrived'
-                                  ),
-                                  SizedBox(
-                                    height: _height * 0.02,
-                                  ),
-                                  const Text(
-                                    '0',
-                                    style: TextStyle(
-                                        fontSize: 24
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Column(
-                                children: [
-                                  const Text(
-                                      'Done'
-                                  ),
-                                  SizedBox(
-                                    height: _height * 0.02,
-                                  ),
-                                  const Text(
-                                    '18',
-                                    style: TextStyle(
-                                        fontSize: 24
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
+            // SizedBox(height: _height * 0.03),
+            loading
+                ? const Center(child: CircularProgressIndicator())
+                : (otData == null || otData!['code'] != '1')
+                ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        height: _height * 0.2,
+                      ),
+                      Icon(
+                        Icons.data_exploration_rounded,
+                        color: Colors.grey.shade500,
+                        size: _width * 0.25,
+                      ),
+                      Text(
+                        'No Data For Inpatient',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: _width * 0.035,
+                          fontFamily: 'Roboto',
+                          color: Colors.grey.shade700,
                         ),
-                        InkWell(
-                          onTap: () {
-                            setState(() {
-                              expand1 = true;
-                              expand2 = false;
-                              expand3 = false;
-                              expand4 = false;
-                              expand5 = false;
-                              expand6 = false;
-                            });
-                          },
-                          child: Card(
-                            color: Constants.skyblue,
-                            child: Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: const [
-                                  Text(
-                                    'NURSE COUNTER OT',
-                                  ),
-                                  Text(
-                                    '3',
-                                  )
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        if(expand1 == true)
-                          Column(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                child: Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          children: const [
-                                            Text(
-                                              '09:00AM',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Done',
-                                              style: TextStyle(color: Colors.green),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(width: _width * 0.05),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'M0044618 - IP0241675  Current',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Dr. Loganathan A/L ATHANABI',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                child: Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          children: const [
-                                            Text(
-                                              '09:00AM',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Done',
-                                              style: TextStyle(color: Colors.green),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(width: _width * 0.05),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'M0044618 - IP0241675  Current',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Dr. Loganathan A/L ATHANABI',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                child: Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          children: const [
-                                            Text(
-                                              '09:00AM',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Done',
-                                              style: TextStyle(color: Colors.green),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(width: _width * 0.05),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'M0044618 - IP0241675  Current',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Dr. Loganathan A/L ATHANABI',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        InkWell(
-                          onTap: () {
-                            setState(() {
-                              expand1 = false;
-                              expand2 = true;
-                              expand3 = false;
-                              expand4 = false;
-                              expand5 = false;
-                              expand6 = false;
-                            });
-                          },
-                          child: Card(
-                            color: Constants.skyblue,
-                            child: Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: const [
-                                  Text(
-                                    'OT1',
-                                  ),
-                                  Text(
-                                    '3',
-                                  )
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        if(expand2 == true)
-                          Column(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                child: Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          children: const [
-                                            Text(
-                                              '09:00AM',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Done',
-                                              style: TextStyle(color: Colors.green),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(width: _width * 0.05),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'M0044618 - IP0241675  Current',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Dr. Loganathan A/L ATHANABI',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                child: Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          children: const [
-                                            Text(
-                                              '09:00AM',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Done',
-                                              style: TextStyle(color: Colors.green),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(width: _width * 0.05),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'M0044618 - IP0241675  Current',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Dr. Loganathan A/L ATHANABI',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                child: Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          children: const [
-                                            Text(
-                                              '09:00AM',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Done',
-                                              style: TextStyle(color: Colors.green),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(width: _width * 0.05),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'M0044618 - IP0241675  Current',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Dr. Loganathan A/L ATHANABI',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        InkWell(
-                          onTap: () {
-                            setState(() {
-                              expand1 = false;
-                              expand2 = false;
-                              expand3 = true;
-                              expand4 = false;
-                              expand5 = false;
-                              expand6 = false;
-                            });
-                          },
-                          child: Card(
-                            color: Constants.skyblue,
-                            child: Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: const [
-                                  Text(
-                                    'OT2',
-                                  ),
-                                  Text(
-                                    '3',
-                                  )
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        if(expand3 == true)
-                          Column(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                child: Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          children: const [
-                                            Text(
-                                              '09:00AM',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Done',
-                                              style: TextStyle(color: Colors.green),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(width: _width * 0.05),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'M0044618 - IP0241675  Current',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Dr. Loganathan A/L ATHANABI',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                child: Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          children: const [
-                                            Text(
-                                              '09:00AM',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Done',
-                                              style: TextStyle(color: Colors.green),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(width: _width * 0.05),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'M0044618 - IP0241675  Current',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Dr. Loganathan A/L ATHANABI',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                child: Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          children: const [
-                                            Text(
-                                              '09:00AM',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Done',
-                                              style: TextStyle(color: Colors.green),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(width: _width * 0.05),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'M0044618 - IP0241675  Current',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Dr. Loganathan A/L ATHANABI',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        InkWell(
-                          onTap: () {
-                            setState(() {
-                              expand1 = false;
-                              expand2 = false;
-                              expand3 = false;
-                              expand4 = true;
-                              expand5 = false;
-                              expand6 = false;
-                            });
-                          },
-                          child: Card(
-                            color: Constants.skyblue,
-                            child: Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: const [
-                                  Text(
-                                    'OT3',
-                                  ),
-                                  Text(
-                                    '3',
-                                  )
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        if(expand4 == true)
-                          Column(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                child: Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          children: const [
-                                            Text(
-                                              '09:00AM',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Done',
-                                              style: TextStyle(color: Colors.green),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(width: _width * 0.05),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'M0044618 - IP0241675  Current',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Dr. Loganathan A/L ATHANABI',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                child: Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          children: const [
-                                            Text(
-                                              '09:00AM',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Done',
-                                              style: TextStyle(color: Colors.green),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(width: _width * 0.05),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'M0044618 - IP0241675  Current',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Dr. Loganathan A/L ATHANABI',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                child: Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          children: const [
-                                            Text(
-                                              '09:00AM',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Done',
-                                              style: TextStyle(color: Colors.green),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(width: _width * 0.05),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'M0044618 - IP0241675  Current',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Dr. Loganathan A/L ATHANABI',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        InkWell(
-                          onTap: () {
-                            setState(() {
-                              expand1 = false;
-                              expand2 = false;
-                              expand3 = false;
-                              expand4 = false;
-                              expand5 = true;
-                              expand6 = false;
-                            });
-                          },
-                          child: Card(
-                            color: Constants.skyblue,
-                            child: Padding( 
-                              padding: const EdgeInsets.all(8.0),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: const [
-                                  Text(
-                                    'OT4',
-                                  ),
-                                  Text(
-                                    '3',
-                                  )
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        if(expand5 == true)
-                          Column(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                child: Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          children: const [
-                                            Text(
-                                              '09:00AM',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Done',
-                                              style: TextStyle(color: Colors.green),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(width: _width * 0.05),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'M0044618 - IP0241675  Current',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Dr. Loganathan A/L ATHANABI',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                child: Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          children: const [
-                                            Text(
-                                              '09:00AM',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Done',
-                                              style: TextStyle(color: Colors.green),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(width: _width * 0.05),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'M0044618 - IP0241675  Current',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Dr. Loganathan A/L ATHANABI',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                child: Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          children: const [
-                                            Text(
-                                              '09:00AM',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Done',
-                                              style: TextStyle(color: Colors.green),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(width: _width * 0.05),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'M0044618 - IP0241675  Current',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Dr. Loganathan A/L ATHANABI',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        InkWell(
-                          onTap: () {
-                            setState(() {
-                              expand1 = false;
-                              expand2 = false;
-                              expand3 = false;
-                              expand4 = false;
-                              expand5 = false;
-                              expand6 = true;
-                            });
-                          },
-                          child: Card(
-                            color: Constants.skyblue,
-                            child: Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: const [
-                                  Text(
-                                    'OT5',
-                                  ),
-                                  Text(
-                                    '3',
-                                  )
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        if(expand6 == true)
-                          Column(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                child: Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          children: const [
-                                            Text(
-                                              '09:00AM',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Done',
-                                              style: TextStyle(color: Colors.green),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(width: _width * 0.05),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'M0044618 - IP0241675  Current',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Dr. Loganathan A/L ATHANABI',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                child: Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          children: const [
-                                            Text(
-                                              '09:00AM',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Done',
-                                              style: TextStyle(color: Colors.green),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(width: _width * 0.05),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'M0044618 - IP0241675  Current',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Dr. Loganathan A/L ATHANABI',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                child: Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          children: const [
-                                            Text(
-                                              '09:00AM',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Done',
-                                              style: TextStyle(color: Colors.green),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(width: _width * 0.05),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'M0044618 - IP0241675  Current',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Dr. Loganathan A/L ATHANABI',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ),
-                SizedBox(
-                  height: _height * 0.03,
-                ),
-              ],
-            ) : Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal:12.0),
-                  child: Card(
-                    child: Column(
-                      children: [
-                        Card(
-                          color: Constants.skyblue,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              Column(
-                                children: [
-                                  const Text(
-                                      'Booked'
+                )
+                : Padding(
+              padding:
+              EdgeInsets.symmetric(horizontal: _width * 0.05),
+              child: ListView(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  SizedBox(height: _height * 0.02),
+                  ...((otData!['listOtRoom'] as List? ?? []).map(
+                          (wardData) {
+                        final wardMap =
+                            wardData as Map<String, dynamic>? ?? {};
+                        String ward = wardMap['otRoom'] ?? 'Unknown Ward';
+                        List patients =
+                            wardMap['listPatient'] as List? ?? [];
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Center(
+                              child: Padding(
+                                padding: EdgeInsets.only(
+                                    top: _height * 0.02),
+                                child: Text(
+                                  ward,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: _width * 0.045,
+                                    color: Colors.black87,
                                   ),
-                                  SizedBox(
-                                    height: _height * 0.02,
-                                  ),
-                                  const Text(
-                                    '9',
-                                    style: TextStyle(
-                                        fontSize: 24
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Column(
-                                children: [
-                                  const Text(
-                                      'Arrived'
-                                  ),
-                                  SizedBox(
-                                    height: _height * 0.02,
-                                  ),
-                                  const Text(
-                                    '0',
-                                    style: TextStyle(
-                                        fontSize: 24
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Column(
-                                children: [
-                                  const Text(
-                                      'Done'
-                                  ),
-                                  SizedBox(
-                                    height: _height * 0.02,
-                                  ),
-                                  const Text(
-                                    '9',
-                                    style: TextStyle(
-                                        fontSize: 24
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        InkWell(
-                          onTap: () {
-                            setState(() {
-                              expand7 = true;
-                              expand8 = false;
-                              expand9 = false;
-                            });
-                          },
-                          child: Card(
-                            color: Constants.skyblue,
-                            child: Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: const [
-                                  Text(
-                                    'OT1',
-                                  ),
-                                  Text(
-                                    '3',
-                                  )
-                                ],
+                                ),
                               ),
                             ),
-                          ),
-                        ),
-                        if(expand7 == true)
-                          Column(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                            SizedBox(height: _height * 0.01),
+                            ...patients.map((p) {
+                              final patient =
+                                  p as Map<String, dynamic>? ?? {};
+                              return SizedBox(
+                                width: double.infinity,
                                 child: Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          children: const [
-                                            Text(
-                                              '09:00AM',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Done',
-                                              style: TextStyle(color: Colors.green),
-                                            ),
-                                          ],
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(15),
+                                  ),
+                                  elevation: 3,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.centerLeft,
+                                        end: Alignment.centerRight,
+                                        colors: [Colors.white, Colors.grey.shade200, Colors.white],
+                                        stops: const [0.5, 1.0, 1.5],
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border(
+                                        bottom: BorderSide(
+                                          color: widget.locationCode == '1' ? turquoise : violet,
+                                          width: 2.0,
                                         ),
-                                        SizedBox(width: _width * 0.05),
-                                        Expanded(
-                                          child: Column(
+                                      ),
+                                    ),
+                                    child: Padding(
+                                      padding: EdgeInsets.all(_width * 0.04),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                'M0044618 - IP0241675  Current',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
+                                                "MRN: ${patient['mrn'] ?? '-'}",
+                                                style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.black87,
+                                                    fontFamily: 'Roboto'),
                                               ),
+                                              SizedBox(height: _height * 0.005),
                                               Text(
-                                                'Dr. Loganathan A/L ATHANABI',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
+                                                "Episode Number: ${patient['episode'] ?? '-'}",
+                                                style:
+                                                TextStyle(color: Colors.grey[700], fontFamily: 'Roboto'),
                                               ),
+                                              SizedBox(height: _height * 0.005),
+                                              Text(
+                                                "OT Time: ${patient['otTime'] ?? '-'}",
+                                                style:
+                                                TextStyle(color: Colors.grey[700], fontFamily: 'Roboto'),
+                                              ),
+                                              // SizedBox(height: _height * 0.005),
+                                              // Text(
+                                              //   "Status: ${patient['otStatus'] ?? '-'}",
+                                              //   style:
+                                              //   TextStyle(color: Colors.grey[700], fontFamily: 'Roboto'),
+                                              // ),
                                             ],
                                           ),
-                                        ),
-                                      ],
+                                          // Icon(Icons.arrow_forward_ios_rounded,
+                                          //     size: _width * 0.05, color: Colors.black),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                child: Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          children: const [
-                                            Text(
-                                              '09:00AM',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Done',
-                                              style: TextStyle(color: Colors.green),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(width: _width * 0.05),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'M0044618 - IP0241675  Current',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Dr. Loganathan A/L ATHANABI',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                child: Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          children: const [
-                                            Text(
-                                              '09:00AM',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Done',
-                                              style: TextStyle(color: Colors.green),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(width: _width * 0.05),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'M0044618 - IP0241675  Current',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Dr. Loganathan A/L ATHANABI',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        InkWell(
-                          onTap: () {
-                            setState(() {
-                              expand7 = false;
-                              expand8 = true;
-                              expand9 = false;
-                            });
-                          },
-                          child: Card(
-                            color: Constants.skyblue,
-                            child: Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: const [
-                                  Text(
-                                    'OT2',
-                                  ),
-                                  Text(
-                                    '3',
-                                  )
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        if(expand8 == true)
-                          Column(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                child: Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          children: const [
-                                            Text(
-                                              '09:00AM',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Done',
-                                              style: TextStyle(color: Colors.green),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(width: _width * 0.05),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'M0044618 - IP0241675  Current',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Dr. Loganathan A/L ATHANABI',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                child: Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          children: const [
-                                            Text(
-                                              '09:00AM',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Done',
-                                              style: TextStyle(color: Colors.green),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(width: _width * 0.05),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'M0044618 - IP0241675  Current',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Dr. Loganathan A/L ATHANABI',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                child: Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          children: const [
-                                            Text(
-                                              '09:00AM',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Done',
-                                              style: TextStyle(color: Colors.green),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(width: _width * 0.05),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'M0044618 - IP0241675  Current',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Dr. Loganathan A/L ATHANABI',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        InkWell(
-                          onTap: () {
-                            setState(() {
-                              expand7 = false;
-                              expand8 = false;
-                              expand9 = true;
-                            });
-                          },
-                          child: Card(
-                            color: Constants.skyblue,
-                            child: Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: const [
-                                  Text(
-                                    'OT2',
-                                  ),
-                                  Text(
-                                    '3',
-                                  )
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        if(expand9 == true)
-                          Column(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                child: Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          children: const [
-                                            Text(
-                                              '09:00AM',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Done',
-                                              style: TextStyle(color: Colors.green),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(width: _width * 0.05),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'M0044618 - IP0241675  Current',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Dr. Loganathan A/L ATHANABI',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                child: Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          children: const [
-                                            Text(
-                                              '09:00AM',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Done',
-                                              style: TextStyle(color: Colors.green),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(width: _width * 0.05),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'M0044618 - IP0241675  Current',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Dr. Loganathan A/L ATHANABI',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                                child: Card(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Column(
-                                          children: const [
-                                            Text(
-                                              '09:00AM',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Done',
-                                              style: TextStyle(color: Colors.green),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(width: _width * 0.05),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'M0044618 - IP0241675  Current',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Dr. Loganathan A/L ATHANABI',
-                                                style: TextStyle(
-                                                  fontSize: _width * 0.035,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  height: _height * 0.03,
-                ),
-              ],
+                              );
+                            }).toList(),
+                          ],
+                        );
+                      }).toList()),
+                ],
+              ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard(String title, int value) {
+    return GestureDetector(
+      onTap: () {},
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: const BorderRadius.all(Radius.circular(15)),
+          gradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [turquoise, Constants.skyblue],
+            stops: const [0.5, 1.0],
+          ),
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(_width * 0.07),
+          child: Column(
+            children: [
+              Text(
+                value.toString(),
+                style: TextStyle(
+                    fontSize: _width * 0.08,
+                    fontFamily: 'Roboto',
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white),
+              ),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: _width * 0.03,
+                    fontFamily: 'Roboto',
+                    color: Colors.white),
+              ),
+            ],
+          ),
         ),
       ),
     );

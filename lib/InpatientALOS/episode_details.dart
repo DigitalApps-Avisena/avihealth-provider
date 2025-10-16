@@ -32,13 +32,13 @@ class _EpisodeDetailsState extends State<EpisodeDetails> {
         title: const Text(
           'Episode Details',
           style: TextStyle(
-            color: turquoise,
+            color: Colors.white,
           ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: turquoise,
         centerTitle: true,
         iconTheme: const IconThemeData(
-            color: turquoise
+            color: Colors.white
         ),
         leading: IconButton(
           onPressed: () => Navigator.of(context).pop(),
@@ -49,7 +49,7 @@ class _EpisodeDetailsState extends State<EpisodeDetails> {
         ),
         elevation: 20,
       ),
-      backgroundColor: Colors.grey.shade200,
+      backgroundColor: const Color(0xFFf4f9fa),
       body: Padding(
         padding: EdgeInsets.symmetric(
           horizontal: _width * 0.05,
